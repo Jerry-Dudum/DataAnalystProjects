@@ -5,6 +5,7 @@ Data Cleaning in SQL Queries
 */
 
 -- View entire table to determine what data needs to be cleaned and transformed
+-- Import NashvilleHousing.xlsx into SQL Server
 
 Select *
 From DataClean.dbo.NashvilleHousing
