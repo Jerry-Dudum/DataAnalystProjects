@@ -1,3 +1,4 @@
+-- Download Bike Store Dataset and execute within SQL
 -- Joining multiple tables to generate relevant store, customer and product data
 
 Select 
