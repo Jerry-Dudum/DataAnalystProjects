@@ -1,0 +1,197 @@
+---
+title: "Cyclistic Bike Share Data"
+author: "Jerry Dudum"
+date: "2023-05-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir="C:/Users/Jerry/Desktop/Updated Cyclistic Data")
+getwd()
+options(repos = "https://cran.rstudio.com/")
+```
+
+## Introduction
+
+As a junior data analyst working with the marketing analyst team I am tasked with developing analysis of Cyclistic's casual and annual rider memberships. From my insights I will design a new marketing strategy to convert casual riders into annual riders. I will complete this task by going through the Ask, Prepare, Process, Analyze, Share and Act phases of data analysis.
+
+## Ask
+
+The ask phase involves addressing pertinent inquiries that will assist in accomplishing the business objective, which in this scenario is to identify disparities in behaviors between casual members and annual members. This information will aid in developing marketing strategies to facilitate the conversion of casual members into annual members. The reason behind this focus is that both the marketing director and the marketing analysis team have concluded that an annual membership is significantly more profitable for the company compared to a casual membership.
+
+To support this business task, the company has provided 12 months worth of collected data. I will utilize Excel and the R programming language to prepare, process, and analyze this data. Subsequently, I will employ Tableau to disseminate the outcomes to the relevant stakeholders.
+
+## Prepare
+
+The prepare phase is where I will be collecting the data and verifying its credibility. Going through the "ROCCC" check (Reliable, Original, Comprehensive, Current and Cited) I can confirm that the 12 months of data provided by Motivate International Inc fits all these conditions. I will now process the data beginning with Excel and moving that data to R.
+
+## Process
+
+The process phase is where I will be cleaning my data by removing any null values, renaming and adding or transforming any data I will find useful in future analysis. I begin by opening all my data within Excel and creating two new columns: "ride_length" and "day_of_week". I calculate the length of each ride by subtracting the column "started_at" from the column "ended_at" and format this column by time as HH:MM:SS. To calculate the day of the week I employ the WEEKDAY function in Excel. This gives each ride a numerical value 1-7 where 1=Sunday and 7=Saturday. At this point I have transformed the data enough in Excel and there is a lot of data to work with so I will be moving it into R to speed up the rest of the process phase.
+
+First I begin my setting up my environment with all the required libraries and packages I will be utilizing.
+
+```{r Installing and loading packages and libraries}
+install.packages("dplyr")
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("readxl")
+install.packages("modeest")
+install.packages("readr")
+
+library("dplyr")
+library("tidyverse")
+library("lubridate")
+library("readxl")
+library("modeest")
+library("readr")
+```
+
+Once my environment is setup and all necessary libraries are loaded I read all the csv files into variables with their respective month. I will begin with May 2022 as this will be the 12 most recent months.
+
+```{r Reading all csv files and creating a dataframe}
+may <- read.csv("2022_05.csv")
+jun <- read.csv("2022_06.csv")
+jul <- read.csv("2022_07.csv")
+aug <- read.csv("2022_08.csv")
+sep <- read.csv("2022_09.csv")
+oct <- read.csv("2022_10.csv")
+nov <- read.csv("2022_11.csv")
+dec <- read.csv("2022_12.csv")
+jan <- read.csv("2023_01.csv")
+feb <- read.csv("2023_02.csv")
+mar <- read.csv("2023_03.csv")
+apr <- read.csv("2023_04.csv")
+cyclistic_df <- rbind(may, jun, jul, aug, sep, oct, nov, dec, jan, feb, mar, apr)
+```
+
+Now we view the dataframe to check every file was read correctly and stored in the dataframe cyclistic_df.
+
+```{r Viewing dataframe}
+View(cyclistic_df)
+str(cyclistic_df)
+```
+
+From here I want to transform certain columns into their appropriate data type. I will be using the start_date and end_date to extract the dates into month, day and year columns separately. From here I want to change the day of the week from numbers into their correlating day and check with the previous dataframe above and dates to check that the right day is inputted. Lastly I will change the ride_length into time format from character, specifically into minutes, so that we can run analysis on it as well as check for any 0 values in ride_length and remove them.
+
+```{r Modify and Transform data into useful data types and remove zero values}
+cyclistic_df$start_date <- as.POSIXct(cyclistic_df$started_at, format="%m/%d/%Y", tz="GMT")
+cyclistic_df$end_date <- as.POSIXct(cyclistic_df$ended_at, format="%m/%d/%Y", tz="GMT")
+cyclistic_df$month <- format(as.Date(cyclistic_df$start_date), "%m")
+cyclistic_df$day <- format(as.Date(cyclistic_df$start_date), "%d")
+cyclistic_df$year <- format(as.Date(cyclistic_df$start_date), "%Y")
+cyclistic_df$day_of_week <- weekdays(cyclistic_df$start_date)
+cyclistic_df$ride_length <- as.difftime(cyclistic_df$ride_length, format = "%H:%M:%S", units = "mins")
+check_zero <- any(cyclistic_df$ride_length < 0)
+cyclistic_df2 <- cyclistic_df[! cyclistic_df$ride_length<0, ]
+check_zero <- any(cyclistic_df2$ride_length < 0)
+print(check_zero)
+cyclistic_df2$ride_length <- as.numeric(cyclistic_df2$ride_length)
+str(cyclistic_df2)
+```
+
+To reduce redundancy and clutter now I will delete the columns we no longer need for the analysis
+
+```{r Delete columns not required for analysis and omit any NA values}
+cyclistic_df2 <- cyclistic_df2 %>%
+  select(-c(started_at, ended_at, start_station_id, end_station_id, start_station_name, end_station_name)) %>%
+  na.omit(cyclistic_df2)
+str(cyclistic_df2)
+```
+
+## Analyze
+
+Now that our data is reformatted and processed the analyze phase can begin. I will be conducting analysis on the cleaned data to understand the behaviors of casual vs member riders to come up with data-driven conclusions to present to stakeholders.
+
+
+```{r Summary of ride lengths}
+summary(cyclistic_df2$ride_length)
+```
+```{r Compare casual vs member riders}
+aggregate(cyclistic_df2$ride_length ~ cyclistic_df2$member_casual, FUN = mean)
+aggregate(cyclistic_df2$ride_length ~ cyclistic_df2$member_casual, FUN = median)
+aggregate(cyclistic_df2$ride_length ~ cyclistic_df2$member_casual, FUN = max)
+aggregate(cyclistic_df2$ride_length ~ cyclistic_df2$member_casual, FUN = min)
+```
+This gives us an insight to casual vs members usage however let's get more specific and utilize the other data we have available to gain more insights.
+
+```{r Analysis of casuals vs members based on day of week}
+cyclistic_df2 %>%
+  mutate(weekday = wday(start_date, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(), average_ride_length = mean(ride_length)) %>%
+  arrange(member_casual, weekday)
+```
+
+## Share
+
+```{r Data visualization of casuals vs members based on weekday and average ride length}
+cyclistic_df2 %>%
+  mutate(weekday = wday(start_date, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(), average_ride_length = mean(ride_length)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = average_ride_length, fill = member_casual)) +
+  geom_col(position = "dodge")
+```
+
+```{r Data visualization of casuals vs members based on weekday and number of rides}
+cyclistic_df2 %>%
+  mutate(weekday = wday(start_date, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(), average_ride_length = mean(ride_length)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")
+```
+
+```{r Analysis of casuals vs members based on month}
+cyclistic_df2 %>%
+  group_by(member_casual, month) %>%
+  summarise(number_of_rides = n(), average_ride_length = mean(ride_length)) %>%
+  arrange(member_casual, month)
+```
+```{r Data visualization of casuals vs members based on month}
+cyclistic_df2 %>%
+  group_by(member_casual, month) %>%
+  summarise(number_of_rides = n(), average_ride_length = mean(ride_length)) %>%
+  arrange(member_casual, month) %>%
+  ggplot(aes(x = month, y = number_of_rides, fill = member_casual))+
+  geom_col(position = "dodge")
+```
+
+```{r Analysis of type of bike }
+cyclistic_df2 %>%
+  group_by(day_of_week, rideable_type) %>%
+  summarise(number_of_rides = n()) %>%
+  arrange(day_of_week, rideable_type)
+```
+
+```{r}
+cyclistic_df2 %>%
+  group_by(day_of_week, rideable_type) %>%
+  summarise(number_of_rides = n()) %>%
+  arrange(day_of_week, rideable_type) %>%
+  ggplot(aes(x = day_of_week, y = number_of_rides, fill = rideable_type))+
+  geom_col(position = "dodge")
+```
+```{r Analysis of casual vs members based on rideable type}
+cyclistic_df2 %>%
+  group_by(rideable_type, member_casual) %>%
+  summarise(number_of_rides = n()) %>%
+  arrange(rideable_type, member_casual) %>%
+  ggplot(aes(x = rideable_type, y = number_of_rides, fill = member_casual))+
+  geom_col(position = "dodge")
+```
+
+From the analysis and visualizations I found that casual users have a higher ride length average than members however members have more rides overall. This most likely means casual users are riding for leisure activities and possibly tourists while members are riding to commute to and from work. Casual riders are highest on the weekends while members are highest on the weekdays further confirming my previous hypothesis of using the bikes to commute to and from work. Furthermore going in to the time of the year we see the most rides the months of May through October experience a considerably higher amount of riders compared to the other months. The highest ridership being in the summer months with the winter months almost dropping down to nearly 0 for casuals and significantly lower for members. As for preference of rideable type both the classic and electric are mostly used with casuals slightly preferring electric bikes over classic.
+
+## Act
+
+The final phase is the act phase where I must come up with my top three recommendations for the company based on my analysis.
+
+1) Offer membership plan for weekends called Weekend Warriors where it is a specific "weekend only" type. This could convert the large casual users into members if the price is lower and they only use the bikes on the weekends mostly.
+
+2) Offer a summer membership as both tourists and locals seem to utilize the service mostly during these months. This will incentivize casual members to consider becoming members as it will only be during the months with better weather and those who come for trips.
+
+3) Offer a new membership for the year where members pay full price for May through October and a discounted price for November through April. As there is a great decline during winter months perhaps if the service was discounted more people who live in the city can also be converted into members who use the service as a means of transportation to and from work.
